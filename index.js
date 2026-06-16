@@ -19,7 +19,7 @@ const supabase = createClient(
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://superhidromack.vercel.app',
+    'https://super-hidro-mack.vercel.app',
     process.env.FRONTEND_URL,
   ].filter(Boolean),
   credentials: true,
