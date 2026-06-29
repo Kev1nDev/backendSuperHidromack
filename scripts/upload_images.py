@@ -6,7 +6,7 @@ from pathlib import Path
 
 # Configuracion
 cloudinary.config(
-    cloud_name="superhidromack",
+    cloud_name="do3kjbiy8",
     api_key="996285372526885",
     api_secret="GlgV-gGajJA15QrxxA3FnEF_ctY",
     secure=True
