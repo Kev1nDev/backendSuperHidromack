@@ -60,12 +60,16 @@ app.post('/api/auth/login', async (req, res) => {
     console.log('DEBUG login - email recibido:', email)
     console.log('DEBUG login - email supabase auth:', data.user.email)
 
+    const { data: allAdmins, error: allErr } = await supabase.from('admins').select('*')
+    console.log('DEBUG login - total admins in table:', allAdmins?.length)
+    console.log('DEBUG login - SUPABASE_URL:', process.env.SUPABASE_URL)
+
     const { data: adminRow, error: adminErr } = await supabase
       .from('admins')
       .select('*')
       .ilike('email', email)
 
-    console.log('DEBUG login - adminRow:', adminRow)
+    console.log('DEBUG login - filtered adminRow:', adminRow)
     console.log('DEBUG login - adminErr:', adminErr)
 
     if (!adminRow || adminRow.length === 0) {
