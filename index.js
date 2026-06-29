@@ -57,13 +57,18 @@ app.post('/api/auth/login', async (req, res) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return res.status(401).json({ error: 'Credenciales incorrectas' })
 
+    console.log('DEBUG login - email recibido:', email)
+    console.log('DEBUG login - email supabase auth:', data.user.email)
+
     const { data: adminRow, error: adminErr } = await supabase
       .from('admins')
-      .select('id')
+      .select('*')
       .ilike('email', email)
-      .single()
 
-    if (adminErr || !adminRow) {
+    console.log('DEBUG login - adminRow:', adminRow)
+    console.log('DEBUG login - adminErr:', adminErr)
+
+    if (!adminRow || adminRow.length === 0) {
       return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
     }
 
