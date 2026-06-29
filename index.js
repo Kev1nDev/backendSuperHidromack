@@ -4,12 +4,14 @@ import multer from 'multer'
 import jwt from 'jsonwebtoken'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
+import cookieParser from 'cookie-parser'
 
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3001
 const JWT_SECRET = process.env.JWT_SECRET || 'superhidromack-secret-2026'
+const isProd = process.env.NODE_ENV === 'production'
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -25,16 +27,16 @@ app.use(cors({
   credentials: true,
 }))
 app.use(express.json())
+app.use(cookieParser())
 
 // ─── Auth Middleware ──────────────────────────────────────────
 
 function authMiddleware(req, res, next) {
-  const header = req.headers.authorization
-  if (!header || !header.startsWith('Bearer ')) {
+  const token = req.cookies?.token
+  if (!token) {
     return res.status(401).json({ error: 'No autorizado' })
   }
   try {
-    const token = header.split(' ')[1]
     const decoded = jwt.verify(token, JWT_SECRET)
     req.user = decoded
     next()
@@ -53,8 +55,25 @@ app.post('/api/auth/login', async (req, res) => {
     }
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return res.status(401).json({ error: 'Credenciales incorrectas' })
+
+    const { data: adminRow, error: adminErr } = await supabase
+      .from('admins')
+      .select('id')
+      .eq('email', data.user.email)
+      .single()
+
+    if (adminErr || !adminRow) {
+      return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
+    }
+
     const token = jwt.sign({ email: data.user.email, id: data.user.id }, JWT_SECRET, { expiresIn: '7d' })
-    res.json({ token, email: data.user.email })
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    })
+    res.json({ email: data.user.email })
   } catch (err) {
     console.error('Login error:', err)
     res.status(500).json({ error: 'Error del servidor' })
@@ -63,14 +82,29 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password } = req.body
+    const { email, password, inviteCode } = req.body
     if (!email || !password) {
       return res.status(400).json({ error: 'Email y contrasena requeridos' })
     }
+    if (!inviteCode || inviteCode !== process.env.ADMIN_INVITE_CODE) {
+      return res.status(403).json({ error: 'Codigo de invitacion invalido' })
+    }
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) return res.status(400).json({ error: error.message })
+
+    await supabase.from('admins').upsert(
+      { id: data.user.id, email: data.user.email },
+      { onConflict: 'email' }
+    )
+
     const token = jwt.sign({ email: data.user.email, id: data.user.id }, JWT_SECRET, { expiresIn: '7d' })
-    res.json({ token, email: data.user.email })
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    })
+    res.json({ email: data.user.email })
   } catch (err) {
     console.error('Register error:', err)
     res.status(500).json({ error: 'Error del servidor' })
@@ -79,6 +113,15 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({ email: req.user.email, id: req.user.id })
+})
+
+app.post('/api/auth/logout', (_req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+  })
+  res.json({ ok: true })
 })
 
 // ─── Health Check ──────────────────────────────────────────────
