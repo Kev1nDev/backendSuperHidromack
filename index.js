@@ -5,8 +5,16 @@ import jwt from 'jsonwebtoken'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import cookieParser from 'cookie-parser'
+import { v2 as cloudinary } from 'cloudinary'
 
 dotenv.config()
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+})
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -111,7 +119,7 @@ app.get('/api/health', (_req, res) => {
 
 // ─── CRUD Routes ────────────────────────────────────────────────
 
-const TABLES = ['categorias', 'aecLineas', 'productosVendidos', 'ventajas', 'brands']
+const TABLES = ['categorias', 'aecLineas', 'productosVendidos', 'ventajas', 'brands', 'distribuidores']
 
 app.get('/api/:table', async (req, res) => {
   const table = req.params.table
@@ -188,15 +196,13 @@ const upload = multer({
 app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subio ninguna imagen' })
   try {
-    const ext = req.file.originalname.split('.').pop()
-    const folder = req.body.folder || 'images'
-    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
-    const { data, error } = await supabase.storage
-      .from('uploads')
-      .upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false })
-    if (error) return res.status(500).json({ error: error.message })
-    const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(data.path)
-    res.json({ url: urlData.publicUrl, path: data.path })
+    const folder = req.body.folder || 'superhidromack'
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
+    const result = await cloudinary.uploader.upload(base64, {
+      folder,
+      resource_type: 'image',
+    })
+    res.json({ url: result.secure_url, publicId: result.public_id })
   } catch (err) {
     console.error('Upload error:', err)
     res.status(500).json({ error: 'Error al subir imagen' })
@@ -205,12 +211,13 @@ app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res)
 
 app.delete('/api/upload', authMiddleware, async (req, res) => {
   try {
-    const { path: filePath } = req.body
-    if (!filePath) return res.status(400).json({ error: 'Path requerido' })
-    await supabase.storage.from('uploads').remove([filePath])
+    const { publicId } = req.body
+    if (!publicId) return res.status(400).json({ error: 'publicId requerido' })
+    await cloudinary.uploader.destroy(publicId)
     res.json({ ok: true })
-  } catch {
-    res.status(500).json({ error: 'Error al eliminar' })
+  } catch (err) {
+    console.error('Delete image error:', err)
+    res.status(500).json({ error: 'Error al eliminar imagen' })
   }
 })
 
