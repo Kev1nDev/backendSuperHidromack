@@ -57,11 +57,7 @@ app.post('/api/auth/login', async (req, res) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return res.status(401).json({ error: 'Credenciales incorrectas' })
 
-    console.log('DEBUG login - email recibido:', email)
-    console.log('DEBUG login - email supabase auth:', data.user.email)
-
-    const { data: allAdmins, error: allErr } = await supabase.from('admins').select('*')
-    const { data: adminRow, error: adminErr } = await supabase
+    const { data: adminRow } = await supabase
       .from('admins')
       .select('*')
       .ilike('email', email)
@@ -71,11 +67,6 @@ app.post('/api/auth/login', async (req, res) => {
       const { count } = await supabase.from('admins').select('*', { count: 'exact', head: true })
       if (count === 0) {
         await supabase.from('admins').insert({ id: data.user.id, email: data.user.email })
-        // Re-fetch to confirm
-        const { data: seeded } = await supabase.from('admins').select('*').ilike('email', email).single()
-        if (seeded) {
-          console.log('First-boot: auto-seeded admin', data.user.email)
-        }
       } else {
         return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
       }
