@@ -221,6 +221,52 @@ app.delete('/api/upload', authMiddleware, async (req, res) => {
   }
 })
 
+// ─── Bulk Upload (Admin only) ────────────────────────────────────
+
+const bulkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'image/svg+xml') cb(null, true)
+    else cb(new Error('Solo se permiten imagenes'))
+  },
+})
+
+app.post('/api/bulk-upload', authMiddleware, bulkUpload.array('images', 50), async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No se subio ninguna imagen' })
+  }
+
+  const folder = req.body.folder || 'superhidromack/bulk'
+  const results = []
+
+  for (const file of req.files) {
+    try {
+      const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
+      const result = await cloudinary.uploader.upload(base64, {
+        folder,
+        resource_type: 'image',
+        use_filename: true,
+        unique_filename: true,
+      })
+      results.push({
+        originalName: file.originalname,
+        url: result.secure_url,
+        publicId: result.public_id,
+        success: true,
+      })
+    } catch (err) {
+      results.push({
+        originalName: file.originalname,
+        error: err.message,
+        success: false,
+      })
+    }
+  }
+
+  res.json({ uploaded: results.filter(r => r.success).length, failed: results.filter(r => !r.success).length, results })
+})
+
 // ─── Start ──────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
