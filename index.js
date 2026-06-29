@@ -49,7 +49,8 @@ function authMiddleware(req, res, next) {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body
+    const email = req.body.email?.toLowerCase().trim()
+    const { password } = req.body
     if (!email || !password) {
       return res.status(400).json({ error: 'Email y contrasena requeridos' })
     }
@@ -59,7 +60,7 @@ app.post('/api/auth/login', async (req, res) => {
     const { data: adminRow, error: adminErr } = await supabase
       .from('admins')
       .select('id')
-      .eq('email', data.user.email)
+      .eq('email', email)
       .single()
 
     if (adminErr || !adminRow) {
