@@ -60,7 +60,7 @@ app.post('/api/auth/login', async (req, res) => {
     const { data: adminRow, error: adminErr } = await supabase
       .from('admins')
       .select('id')
-      .eq('email', email)
+      .ilike('email', email)
       .single()
 
     if (adminErr || !adminRow) {
