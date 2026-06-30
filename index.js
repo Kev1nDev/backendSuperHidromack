@@ -70,14 +70,8 @@ app.post('/api/auth/login', async (req, res) => {
       .select('*')
       .ilike('email', email)
 
-    // First-boot: if no admins exist at all, auto-seed this authenticated user
     if (!adminRow || adminRow.length === 0) {
-      const { count } = await supabase.from('admins').select('*', { count: 'exact', head: true })
-      if (count === 0) {
-        await supabase.from('admins').insert({ id: data.user.id, email: data.user.email })
-      } else {
-        return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
-      }
+      return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
     }
 
     const token = jwt.sign({ email: data.user.email, id: data.user.id }, JWT_SECRET, { expiresIn: '7d' })
