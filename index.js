@@ -124,71 +124,6 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() })
 })
 
-// ─── CRUD Routes ────────────────────────────────────────────────
-
-const TABLES = ['categorias', 'aecLineas', 'productosVendidos', 'ventajas', 'brands', 'distribuidores']
-
-app.get('/api/:table', async (req, res) => {
-  const table = req.params.table
-  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
-  try {
-    const { data, error } = await supabase.from(table).select('*').order('order', { ascending: true })
-    if (error) return res.status(500).json({ error: error.message })
-    res.json(data || [])
-  } catch {
-    res.json([])
-  }
-})
-
-app.get('/api/:table/:id', async (req, res) => {
-  const table = req.params.table
-  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
-  try {
-    const { data, error } = await supabase.from(table).select('*').eq('id', req.params.id).single()
-    if (error) return res.status(404).json({ error: 'No encontrado' })
-    res.json(data)
-  } catch {
-    res.status(404).json({ error: 'No encontrado' })
-  }
-})
-
-app.post('/api/:table', authMiddleware, async (req, res) => {
-  const table = req.params.table
-  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
-  try {
-    const { data, error } = await supabase.from(table).upsert(req.body, { onConflict: 'id' }).select()
-    if (error) return res.status(500).json({ error: error.message })
-    res.json(data?.[0] || req.body)
-  } catch (err) {
-    console.error('Save error:', err)
-    res.status(500).json({ error: 'Error del servidor' })
-  }
-})
-
-app.put('/api/:table/:id', authMiddleware, async (req, res) => {
-  const table = req.params.table
-  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
-  try {
-    const { data, error } = await supabase.from(table).update(req.body).eq('id', req.params.id).select()
-    if (error) return res.status(500).json({ error: error.message })
-    res.json(data?.[0] || req.body)
-  } catch (err) {
-    res.status(500).json({ error: 'Error del servidor' })
-  }
-})
-
-app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
-  const table = req.params.table
-  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
-  try {
-    const { error } = await supabase.from(table).delete().eq('id', req.params.id)
-    if (error) return res.status(500).json({ error: error.message })
-    res.json({ ok: true })
-  } catch {
-    res.status(500).json({ error: 'Error del servidor' })
-  }
-})
-
 // ─── Image Upload ───────────────────────────────────────────────
 
 const upload = multer({
@@ -272,6 +207,71 @@ app.post('/api/bulk-upload', authMiddleware, bulkUpload.array('images', 50), asy
   }
 
   res.json({ uploaded: results.filter(r => r.success).length, failed: results.filter(r => !r.success).length, results })
+})
+
+// ─── CRUD Routes ────────────────────────────────────────────────
+
+const TABLES = ['categorias', 'aecLineas', 'productosVendidos', 'ventajas', 'brands', 'distribuidores']
+
+app.get('/api/:table', async (req, res) => {
+  const table = req.params.table
+  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
+  try {
+    const { data, error } = await supabase.from(table).select('*').order('order', { ascending: true })
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data || [])
+  } catch {
+    res.json([])
+  }
+})
+
+app.get('/api/:table/:id', async (req, res) => {
+  const table = req.params.table
+  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
+  try {
+    const { data, error } = await supabase.from(table).select('*').eq('id', req.params.id).single()
+    if (error) return res.status(404).json({ error: 'No encontrado' })
+    res.json(data)
+  } catch {
+    res.status(404).json({ error: 'No encontrado' })
+  }
+})
+
+app.post('/api/:table', authMiddleware, async (req, res) => {
+  const table = req.params.table
+  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
+  try {
+    const { data, error } = await supabase.from(table).upsert(req.body, { onConflict: 'id' }).select()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data?.[0] || req.body)
+  } catch (err) {
+    console.error('Save error:', err)
+    res.status(500).json({ error: 'Error del servidor' })
+  }
+})
+
+app.put('/api/:table/:id', authMiddleware, async (req, res) => {
+  const table = req.params.table
+  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
+  try {
+    const { data, error } = await supabase.from(table).update(req.body).eq('id', req.params.id).select()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data?.[0] || req.body)
+  } catch (err) {
+    res.status(500).json({ error: 'Error del servidor' })
+  }
+})
+
+app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
+  const table = req.params.table
+  if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
+  try {
+    const { error } = await supabase.from(table).delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  } catch {
+    res.status(500).json({ error: 'Error del servidor' })
+  }
 })
 
 // ─── Start ──────────────────────────────────────────────────────
