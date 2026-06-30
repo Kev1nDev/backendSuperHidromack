@@ -70,6 +70,23 @@ app.post('/api/auth/login', async (req, res) => {
       .select('*')
       .ilike('email', email)
 
+    // SECURITY NOTE: The following auto-seed block is DISABLED by default.
+    // If you are setting up the project for the first time on a NEW database
+    // (e.g., after changing Supabase credentials or resetting the project),
+    // uncomment the block below so the first successful login creates the admin.
+    // AFTER the first admin is created, re-comment this block to avoid the
+    // vulnerability where any authenticated user becomes admin if the table
+    // is ever emptied.
+    //
+    // if (!adminRow || adminRow.length === 0) {
+    //   const { count } = await supabase.from('admins').select('*', { count: 'exact', head: true })
+    //   if (count === 0) {
+    //     await supabase.from('admins').insert({ id: data.user.id, email: data.user.email })
+    //   } else {
+    //     return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
+    //   }
+    // }
+
     if (!adminRow || adminRow.length === 0) {
       return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
     }
