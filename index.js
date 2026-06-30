@@ -83,8 +83,8 @@ app.post('/api/auth/login', async (req, res) => {
     const token = jwt.sign({ email: data.user.email, id: data.user.id }, JWT_SECRET, { expiresIn: '7d' })
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
     res.json({ email: data.user.email })
@@ -105,8 +105,8 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
 app.post('/api/auth/logout', (_req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+    secure: true,
+    sameSite: 'none',
   })
   res.json({ ok: true })
 })
