@@ -78,17 +78,13 @@ app.post('/api/auth/login', async (req, res) => {
     // vulnerability where any authenticated user becomes admin if the table
     // is ever emptied.
     //
-    // if (!adminRow || adminRow.length === 0) {
-    //   const { count } = await supabase.from('admins').select('*', { count: 'exact', head: true })
-    //   if (count === 0) {
-    //     await supabase.from('admins').insert({ id: data.user.id, email: data.user.email })
-    //   } else {
-    //     return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
-    //   }
-    // }
-
     if (!adminRow || adminRow.length === 0) {
-      return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
+      const { count } = await supabase.from('admins').select('*', { count: 'exact', head: true })
+      if (count === 0) {
+        await supabase.from('admins').insert({ id: data.user.id, email: data.user.email })
+      } else {
+        return res.status(403).json({ error: 'Acceso denegado. No eres administrador.' })
+      }
     }
 
     const token = jwt.sign({ email: data.user.email, id: data.user.id }, JWT_SECRET, { expiresIn: '7d' })
