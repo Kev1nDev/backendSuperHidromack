@@ -40,7 +40,7 @@ app.use(cookieParser())
 // ─── Auth Middleware ──────────────────────────────────────────
 
 function authMiddleware(req, res, next) {
-  const token = req.cookies?.token
+  const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '')
   if (!token) {
     return res.status(401).json({ error: 'No autorizado' })
   }
@@ -98,7 +98,7 @@ app.post('/api/auth/login', async (req, res) => {
       sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
-    res.json({ email: data.user.email })
+    res.json({ email: data.user.email, token })
   } catch (err) {
     console.error('Login error:', err)
     res.status(500).json({ error: 'Error del servidor' })
