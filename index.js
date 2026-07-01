@@ -270,16 +270,22 @@ app.post('/api/bulk-upload', authMiddleware, bulkUpload.array('images', 50), asy
 
 app.get('/api/contact', authMiddleware, async (req, res) => {
   try {
+    console.log('[GET /api/contact] Fetching from Supabase...')
     const { data, error } = await supabase
       .from('contact_requests')
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) {
+      console.error('[GET /api/contact] Supabase error:', error)
+      return res.status(500).json({ error: error.message, details: error })
+    }
+
+    console.log(`[GET /api/contact] Found ${data?.length || 0} records`)
     res.json(data || [])
   } catch (err) {
-    console.error('List contact error:', err)
-    res.status(500).json({ error: 'Error del servidor' })
+    console.error('[GET /api/contact] Server error:', err)
+    res.status(500).json({ error: 'Error del servidor', details: err.message })
   }
 })
 
@@ -404,6 +410,25 @@ app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
     res.json({ ok: true })
   } catch {
     res.status(500).json({ error: 'Error del servidor' })
+  }
+})
+
+// ─── Debug / Health DB ─────────────────────────────────────────
+
+app.get('/api/debug/contact-count', async (req, res) => {
+  try {
+    const { data, error, count } = await supabase
+      .from('contact_requests')
+      .select('*', { count: 'exact' })
+
+    res.json({
+      count: count ?? 0,
+      sample: data?.slice(0, 2) ?? [],
+      error: error?.message ?? null,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 
