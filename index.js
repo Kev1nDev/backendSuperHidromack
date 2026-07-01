@@ -37,6 +37,24 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser())
 
+// ─── Security Headers & Anti-Cache ──────────────────────────────
+
+app.use((_req, res, next) => {
+  // Prevent MIME-type sniffing and clickjacking
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+  // Anti-cache: prevent any intermediary (Vercel, CDN, browser) from
+  // caching API responses. Critical to mitigate Web Cache Deception
+  // and sensitive data exposure.
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('Expires', '0')
+
+  next()
+})
+
 // ─── Rate Limiting ─────────────────────────────────────────────
 
 const RATE_LIMIT = new Map()
