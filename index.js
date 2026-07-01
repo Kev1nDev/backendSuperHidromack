@@ -403,16 +403,21 @@ app.put('/api/:table/:id', authMiddleware, async (req, res) => {
 
 app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
   const table = req.params.table
+  const id = req.params.id.trim()
   if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
+  if (!id) return res.status(400).json({ error: 'ID requerido' })
   try {
-    const { error } = await supabase.from(table).delete().eq('id', req.params.id)
+    const { error, count } = await supabase.from(table).delete({ count: 'exact' }).eq('id', id)
     if (error) {
-      console.error('[DELETE] Supabase error:', req.params.id, 'from', table, error)
+      console.error('[DELETE] Supabase error:', id, 'from', table, error)
       return res.status(500).json({ error: error.message })
     }
-    res.json({ ok: true })
+    if (count === 0) {
+      return res.status(404).json({ error: 'Registro no encontrado' })
+    }
+    res.json({ ok: true, deleted: count })
   } catch (err) {
-    console.error('[DELETE] Server error:', req.params.id, 'from', table, err)
+    console.error('[DELETE] Server error:', id, 'from', table, err)
     res.status(500).json({ error: 'Error del servidor' })
   }
 })
