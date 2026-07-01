@@ -37,6 +37,45 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser())
 
+// ─── Rate Limiting ─────────────────────────────────────────────
+
+const RATE_LIMIT = new Map()
+const RATE_WINDOW_MS = 15 * 60 * 1000 // 15 minutos
+const RATE_MAX_REQUESTS = 5 // max 5 requests por ventana
+
+function rateLimitMiddleware(req, res, next) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown'
+  const now = Date.now()
+  const record = RATE_LIMIT.get(ip)
+
+  if (record) {
+    if (now - record.start > RATE_WINDOW_MS) {
+      // Ventana expirada, reiniciar
+      RATE_LIMIT.set(ip, { count: 1, start: now })
+    } else if (record.count >= RATE_MAX_REQUESTS) {
+      return res.status(429).json({
+        error: 'Demasiadas solicitudes. Intenta de nuevo en 15 minutos.',
+      })
+    } else {
+      record.count += 1
+    }
+  } else {
+    RATE_LIMIT.set(ip, { count: 1, start: now })
+  }
+
+  next()
+}
+
+// Limpiar entradas antiguas cada hora para evitar memory leak
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, record] of RATE_LIMIT.entries()) {
+    if (now - record.start > RATE_WINDOW_MS) {
+      RATE_LIMIT.delete(ip)
+    }
+  }
+}, 60 * 60 * 1000)
+
 // ─── Auth Middleware ──────────────────────────────────────────
 
 function authMiddleware(req, res, next) {
@@ -276,7 +315,7 @@ app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
 
 // ─── Contact / B2B Requests ──────────────────────────────────────
 
-app.post('/api/contact', async (req, res) => {
+app.post('/api/contact', rateLimitMiddleware, async (req, res) => {
   try {
     const { name, company, email, phone, volume, message } = req.body
     if (!name || !email || !company) {
