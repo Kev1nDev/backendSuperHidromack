@@ -406,9 +406,13 @@ app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
   if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
   try {
     const { error } = await supabase.from(table).delete().eq('id', req.params.id)
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) {
+      console.error('[DELETE] Supabase error:', req.params.id, 'from', table, error)
+      return res.status(500).json({ error: error.message })
+    }
     res.json({ ok: true })
-  } catch {
+  } catch (err) {
+    console.error('[DELETE] Server error:', req.params.id, 'from', table, err)
     res.status(500).json({ error: 'Error del servidor' })
   }
 })
