@@ -274,6 +274,36 @@ app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
   }
 })
 
+// ─── Contact / B2B Requests ──────────────────────────────────────
+
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, company, email, phone, volume, message } = req.body
+    if (!name || !email || !company) {
+      return res.status(400).json({ error: 'Nombre, empresa y correo son requeridos' })
+    }
+
+    const { data, error } = await supabase.from('contact_requests').insert({
+      name: name.trim(),
+      company: company.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone?.trim() || null,
+      volume: volume?.trim() || null,
+      message: message?.trim() || null,
+    }).select()
+
+    if (error) {
+      console.error('Contact insert error:', error)
+      return res.status(500).json({ error: 'Error al guardar la solicitud' })
+    }
+
+    res.json({ ok: true, id: data?.[0]?.id })
+  } catch (err) {
+    console.error('Contact endpoint error:', err)
+    res.status(500).json({ error: 'Error del servidor' })
+  }
+})
+
 // ─── Start ──────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
