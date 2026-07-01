@@ -315,6 +315,52 @@ app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
 
 // ─── Contact / B2B Requests ──────────────────────────────────────
 
+app.get('/api/contact', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('contact_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data || [])
+  } catch (err) {
+    console.error('List contact error:', err)
+    res.status(500).json({ error: 'Error del servidor' })
+  }
+})
+
+app.put('/api/contact/:id', authMiddleware, async (req, res) => {
+  try {
+    const { status } = req.body
+    if (!status || !['nuevo', 'en_proceso', 'completado', 'cancelado'].includes(status)) {
+      return res.status(400).json({ error: 'Status invalido' })
+    }
+    const { data, error } = await supabase
+      .from('contact_requests')
+      .update({ status })
+      .eq('id', req.params.id)
+      .select()
+
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data?.[0] || { ok: true })
+  } catch (err) {
+    console.error('Update contact error:', err)
+    res.status(500).json({ error: 'Error del servidor' })
+  }
+})
+
+app.delete('/api/contact/:id', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await supabase.from('contact_requests').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('Delete contact error:', err)
+    res.status(500).json({ error: 'Error del servidor' })
+  }
+})
+
 app.post('/api/contact', rateLimitMiddleware, async (req, res) => {
   try {
     const { name, company, email, phone, volume, message } = req.body
