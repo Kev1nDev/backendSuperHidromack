@@ -387,9 +387,17 @@ app.post('/api/:table', authMiddleware, async (req, res) => {
   const table = req.params.table
   if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
   try {
-    const { data, error } = await supabase.from(table).upsert(req.body, { onConflict: 'id' }).select()
-    if (error) return res.status(500).json({ error: error.message })
-    res.json(data?.[0] || req.body)
+    const doc = { ...req.body }
+    if (!doc.id || !doc.id.trim()) {
+      return res.status(400).json({ error: 'El ID es requerido' })
+    }
+    doc.id = doc.id.trim()
+    if (doc.order !== undefined && doc.order !== null) {
+      doc.order = Number(doc.order)
+    }
+    const { data, error } = await supabase.from(table).upsert(doc, { onConflict: 'id' }).select()
+    if (error) return res.status(500).json({ error: error.message, details: error })
+    res.json(data?.[0] || doc)
   } catch (err) {
     console.error('Save error:', err)
     res.status(500).json({ error: 'Error del servidor' })
