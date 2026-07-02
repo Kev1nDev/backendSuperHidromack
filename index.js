@@ -354,12 +354,19 @@ const TABLES = ['categorias', 'aecLineas', 'productosVendidos', 'ventajas', 'bra
 
 app.get('/api/:table', async (req, res) => {
   const table = req.params.table
+  console.log(`[GET /api/${table}] Request received`)
   if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
   try {
+    console.log(`[GET /api/${table}] Querying Supabase...`)
     const { data, error } = await supabase.from(table).select('*').order('order', { ascending: true })
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) {
+      console.error(`[GET /api/${table}] Supabase error:`, error)
+      return res.status(500).json({ error: error.message, details: error })
+    }
+    console.log(`[GET /api/${table}] Success, ${data?.length || 0} rows`)
     res.json(data || [])
-  } catch {
+  } catch (err) {
+    console.error(`[GET /api/${table}] Exception:`, err)
     res.json([])
   }
 })
@@ -423,6 +430,19 @@ app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
 })
 
 // ─── Debug / Health DB ─────────────────────────────────────────
+
+app.get('/api/debug/tables', async (req, res) => {
+  const results = {}
+  for (const table of TABLES) {
+    try {
+      const { data, error } = await supabase.from(table).select('*')
+      results[table] = error ? { error: error.message } : { count: data?.length || 0, sample: data?.[0] || null }
+    } catch (err) {
+      results[table] = { error: err.message || String(err) }
+    }
+  }
+  res.json(results)
+})
 
 app.get('/api/debug/contact-count', async (req, res) => {
   try {
