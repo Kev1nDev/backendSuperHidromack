@@ -18,7 +18,8 @@ cloudinary.config({
 
 const app = express()
 const PORT = process.env.PORT || 3001
-const JWT_SECRET = process.env.JWT_SECRET || 'superhidromack-secret-2026'
+if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET requerido en .env')
+const JWT_SECRET = process.env.JWT_SECRET
 const isProd = process.env.NODE_ENV === 'production'
 
 const supabase = createClient(
@@ -31,7 +32,7 @@ app.use(cors({
     'http://localhost:5173',
     'https://super-hidro-mack.vercel.app',
     process.env.FRONTEND_URL,
-  ].filter(Boolean),
+  ],
   credentials: true,
 }))
 app.use(express.json())
@@ -278,14 +279,14 @@ app.get('/api/contact', authMiddleware, async (req, res) => {
 
     if (error) {
       console.error('[GET /api/contact] Supabase error:', error)
-      return res.status(500).json({ error: error.message, details: error })
+      return res.status(500).json({ error: 'Error del servidor' })
     }
 
     console.log(`[GET /api/contact] Found ${data?.length || 0} records`)
     res.json(data || [])
   } catch (err) {
     console.error('[GET /api/contact] Server error:', err)
-    res.status(500).json({ error: 'Error del servidor', details: err.message })
+    res.status(500).json({ error: 'Error del servidor' })
   }
 })
 
@@ -301,7 +302,10 @@ app.put('/api/contact/:id', authMiddleware, async (req, res) => {
       .eq('id', req.params.id)
       .select()
 
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) {
+      console.error('[PUT /api/contact] Supabase error:', error)
+      return res.status(500).json({ error: 'Error del servidor' })
+    }
     res.json(data?.[0] || { ok: true })
   } catch (err) {
     console.error('Update contact error:', err)
@@ -312,7 +316,10 @@ app.put('/api/contact/:id', authMiddleware, async (req, res) => {
 app.delete('/api/contact/:id', authMiddleware, async (req, res) => {
   try {
     const { error } = await supabase.from('contact_requests').delete().eq('id', req.params.id)
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) {
+      console.error('[DELETE /api/contact] Supabase error:', error)
+      return res.status(500).json({ error: 'Error del servidor' })
+    }
     res.json({ ok: true })
   } catch (err) {
     console.error('Delete contact error:', err)
@@ -350,6 +357,14 @@ app.post('/api/contact', rateLimitMiddleware, async (req, res) => {
 
 // ─── CRUD Routes ────────────────────────────────────────────────
 
+const SENSITIVE_FIELDS = ['role', 'is_admin', 'permissions', 'password_hash', 'token']
+function sanitize(obj) {
+  if (!obj || typeof obj !== 'object') return obj
+  const safe = { ...obj }
+  for (const f of SENSITIVE_FIELDS) delete safe[f]
+  return safe
+}
+
 const TABLES = ['categorias', 'aecLineas', 'productosVendidos', 'ventajas', 'brands', 'distribuidores']
 
 app.get('/api/:table', async (req, res) => {
@@ -361,13 +376,13 @@ app.get('/api/:table', async (req, res) => {
     const { data, error } = await supabase.from(table).select('*').order('order', { ascending: true })
     if (error) {
       console.error(`[GET /api/${table}] Supabase error:`, error)
-      return res.status(500).json({ error: error.message, details: error })
+      return res.status(500).json({ error: 'Error del servidor' })
     }
     console.log(`[GET /api/${table}] Success, ${data?.length || 0} rows`)
     res.json(data || [])
   } catch (err) {
     console.error(`[GET /api/${table}] Exception:`, err)
-    res.json([])
+    res.status(500).json({ error: 'Error del servidor' })
   }
 })
 
@@ -387,7 +402,7 @@ app.post('/api/:table', authMiddleware, async (req, res) => {
   const table = req.params.table
   if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
   try {
-    const doc = { ...req.body }
+    const doc = { ...sanitize(req.body) }
     if (!doc.id || !doc.id.trim()) {
       return res.status(400).json({ error: 'El ID es requerido' })
     }
@@ -396,7 +411,10 @@ app.post('/api/:table', authMiddleware, async (req, res) => {
       doc.order = Number(doc.order)
     }
     const { data, error } = await supabase.from(table).upsert(doc, { onConflict: 'id' }).select()
-    if (error) return res.status(500).json({ error: error.message, details: error })
+    if (error) {
+      console.error(`[POST /api/${table}] Supabase error:`, error)
+      return res.status(500).json({ error: 'Error del servidor' })
+    }
     res.json(data?.[0] || doc)
   } catch (err) {
     console.error('Save error:', err)
@@ -408,8 +426,11 @@ app.put('/api/:table/:id', authMiddleware, async (req, res) => {
   const table = req.params.table
   if (!TABLES.includes(table)) return res.status(404).json({ error: 'Tabla no encontrada' })
   try {
-    const { data, error } = await supabase.from(table).update(req.body).eq('id', req.params.id).select()
-    if (error) return res.status(500).json({ error: error.message })
+    const { data, error } = await supabase.from(table).update(sanitize(req.body)).eq('id', req.params.id).select()
+    if (error) {
+      console.error(`[PUT /api/${table}] Supabase error:`, error)
+      return res.status(500).json({ error: 'Error del servidor' })
+    }
     res.json(data?.[0] || req.body)
   } catch (err) {
     res.status(500).json({ error: 'Error del servidor' })
@@ -425,7 +446,7 @@ app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
     const { error, count } = await supabase.from(table).delete({ count: 'exact' }).eq('id', id)
     if (error) {
       console.error('[DELETE] Supabase error:', id, 'from', table, error)
-      return res.status(500).json({ error: error.message })
+      return res.status(500).json({ error: 'Error del servidor' })
     }
     if (count === 0) {
       return res.status(404).json({ error: 'Registro no encontrado' })
@@ -439,7 +460,7 @@ app.delete('/api/:table/:id', authMiddleware, async (req, res) => {
 
 // ─── Debug / Health DB ─────────────────────────────────────────
 
-app.get('/api/debug/tables', async (req, res) => {
+app.get('/api/debug/tables', authMiddleware, async (req, res) => {
   const results = {}
   for (const table of TABLES) {
     try {
@@ -452,7 +473,7 @@ app.get('/api/debug/tables', async (req, res) => {
   res.json(results)
 })
 
-app.get('/api/debug/contact-count', async (req, res) => {
+app.get('/api/debug/contact-count', authMiddleware, async (req, res) => {
   try {
     const { data, error, count } = await supabase
       .from('contact_requests')
@@ -465,8 +486,16 @@ app.get('/api/debug/contact-count', async (req, res) => {
       timestamp: new Date().toISOString(),
     })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('[GET /api/debug/contact-count] Error:', err)
+    res.status(500).json({ error: 'Error del servidor' })
   }
+})
+
+// ─── Global Error Handler ─────────────────────────────────────────
+
+app.use((err, req, res, next) => {
+  console.error('Error no manejado:', err)
+  res.status(500).json({ error: 'Error del servidor' })
 })
 
 // ─── Start ──────────────────────────────────────────────────────
