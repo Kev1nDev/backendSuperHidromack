@@ -31,8 +31,10 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://super-hidro-mack.vercel.app',
+    'https://superhidromack.com',
+    'https://www.superhidromack.com',
     process.env.FRONTEND_URL,
-  ],
+  ].filter(Boolean),
   credentials: true,
 }))
 app.use(express.json())
